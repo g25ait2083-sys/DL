@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contrastive Learning — Interactive Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3e;
+    --accent: #7c6fff;
+    --accent2: #ff6f91;
+    --positive: #4fffb0;
+    --negative: #ff4f6f;
+    --text: #e8e8f0;
+    --muted: #7878a0;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HERO */
+  .hero {
+    text-align: center;
+    padding: 64px 24px 48px;
+    position: relative;
+  }
+  .hero-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 6vw, 3.8rem);
+    font-weight: 700;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .hero p {
+    color: var(--muted);
+    font-size: 1.05rem;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* NAV TABS */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 24px 40px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 10px 22px;
+    border-radius: 100px;
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .section { display: none; padding: 0 24px 80px; max-width: 900px; margin: 0 auto; }
+  .section.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .card h3 { font-size: 1.15rem; margin-bottom: 8px; }
+  .card p { color: var(--muted); line-height: 1.6; font-size: 0.95rem; }
+
+  /* ── SECTION 1: AUGMENTATION PLAYGROUND ── */
+  .aug-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 600px) { .aug-container { grid-template-columns: 1fr; } }
+
+  .aug-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+  }
+  .aug-panel .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  canvas.aug-canvas {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: block;
+    margin: 0 auto 12px;
+  }
+  .aug-tag {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .aug-controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .aug-controls h3 { margin-bottom: 16px; font-size: 1rem; }
+  .aug-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .aug-toggle {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .aug-toggle.on { border-color: var(--accent); color: var(--text); background: rgba(124,111,255,0.1); }
+  .aug-toggle .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .aug-toggle.on .dot { background: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-family: var(--font);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    display: inline-block;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  /* ── SECTION 3: LOSS VISUALIZER ── */
+  .pair-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 500px) { .pair-selector { grid-template-columns: 1fr; } }
+
+  .pair-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .pair-card:hover { border-color: var(--accent); }
+  .pair-card.selected { border-color: var(--accent); background: rgba(124,111,255,0.1); }
+  .pair-card .emoji { font-size: 1.8rem; margin-bottom: 8px; }
+  .pair-card .pair-label { font-size: 0.8rem; color: var(--muted); }
+  .pair-card .pair-type { font-size: 0.85rem; font-weight: 600; margin-top: 4px; }
+  .pair-card.pos .pair-type { color: var(--positive); }
+  .pair-card.neg .pair-type { color: var(--negative); }
+  .pair-card.fn .pair-type { color: #ffaa4f; }
+
+  .loss-display {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+  }
+  .loss-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .loss-label { font-size: 0.9rem; color: var(--muted); }
+  .loss-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 100px;
+    margin: 0 16px;
+    overflow: hidden;
+  }
+  .loss-bar {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .loss-value {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    width: 60px;
+    text-align: right;
+  }
+  .verdict {
+    margin-top: 20px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .verdict.good { background: rgba(79,255,176,0.08); border: 1px solid rgba(79,255,176,0.3); color: var(--positive); }
+  .verdict.bad { background: rgba(255,79,111,0.08); border: 1px solid rgba(255,79,111,0.3); color: var(--negative); }
+  .verdict.warn { background: rgba(255,170,79,0.08); border: 1px solid rgba(255,170,79,0.3); color: #ffaa4f; }
+
+
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-label">Interactive Demo</div>
+  <h1>Contrastive Learning</h1>
+  <p>Explore how neural networks learn by comparing positive and negative pairs in embedding space.</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('augmentation')">① Augmentation</button>
+  <button class="tab-btn" onclick="switchTab('encoder')">② Encoder</button>
+  <button class="tab-btn" onclick="switchTab('similarity')">③ Similarity</button>
+  <button class="tab-btn" onclick="switchTab('loss')">④ Loss & Pairs</button>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 1: AUGMENTATION PLAYGROUND
+══════════════════════════════════════════ -->
+<div id="sec-augmentation" class="section active">
+  <div class="card">
+    <div class="card-title">What is augmentation?</div>
+    <p>Augmentation creates two different <em>views</em> of the same image. The model learns that both views should have <strong style="color:var(--accent)">similar embeddings</strong> — forcing it to understand the image's true content, not surface details.</p>
+  </div>
+
+  <div class="aug-container">
+    <div class="aug-panel">
+      <div class="label">Original Image</div>
+      <canvas id="canvasA" class="aug-canvas" width="180" height="180"></canvas>
+      <div class="aug-tag">View 1</div>
+    </div>
+    <div class="aug-panel">
+      <div class="label">Augmented View</div>
+      <canvas id="canvasB" class="aug-canvas" width="180" height="180"></canvas>
+      <div class="aug-tag" id="augTagB">No augmentation</div>
+    </div>
+  </div>
+
+  <div class="aug-controls">
+    <h3>Choose Augmentations</h3>
+    <div class="aug-grid">
+      <button class="aug-toggle" data-aug="flip" onclick="toggleAug(this)"><span class="dot"></span>Flip</button>
+      <button class="aug-toggle" data-aug="crop" onclick="toggleAug(this)"><span class="dot"></span>Random Crop</button>
+      <button class="aug-toggle" data-aug="brightness" onclick="toggleAug(this)"><span class="dot"></span>Brightness</button>
+      <button class="aug-toggle" data-aug="grayscale" onclick="toggleAug(this)"><span class="dot"></span>Grayscale</button>
+      <button class="aug-toggle" data-aug="blur" onclick="toggleAug(this)"><span class="dot"></span>Blur</button>
+      <button class="aug-toggle" data-aug="rotate" onclick="toggleAug(this)"><span class="dot"></span>Rotate</button>
+    </div>
+    <button class="btn-primary" onclick="applyAugmentation()">Apply & Randomize</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Key Insight</div>
+    <p>Both views come from the <strong style="color:var(--accent)">same image</strong> → they form a <strong style="color:var(--positive)">positive pair</strong>. The model is trained to produce similar embedding vectors for both, no matter how different they look visually.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 2: ENCODER
+══════════════════════════════════════════ -->
+<div id="sec-encoder" class="section">
+  <div class="card">
+    <div class="card-title">What is the Encoder?</div>
+    <p>The encoder is a neural network (like ResNet) that converts a raw image into a small list of numbers called an <strong style="color:var(--accent)">embedding vector</strong>. Similar images get similar vectors. Different images get different vectors.</p>
+  </div>
+
+  <!-- pipeline flow -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:24px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;text-align:center;min-width:110px">
+      <div style="font-size:1.8rem;margin-bottom:6px">🖼️</div>
+      <div style="font-size:0.75rem;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Raw Image</div>
+      <div style="font-size:0.8rem;color:var(--text);margin-top:4px">224×224×3<br><span style="color:var(--muted);font-size:0.72rem">150,528 numbers</span></div>
+    </div>
+    <div style="font-size:1.6rem;color:var(--accent)">→</div>
+    <div style="background:var(--surface);border:2px solid var(--accent);border-radius:12px;padding:14px 18px;text-align:center;min-width:110px">
+      <div style="font-size:1.8rem;margin-bottom:6px">🧠</div>
+      <div style="font-size:0.75rem;font-family:var(--mono);color:var(--accent);text-transform:uppercase;letter-spacing:.1em">Encoder f(·)</div>
+      <div style="font-size:0.8rem;color:var(--text);margin-top:4px">ResNet-50<br><span style="color:var(--muted);font-size:0.72rem">learns features</span></div>
+    </div>
+    <div style="font-size:1.6rem;color:var(--accent)">→</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;text-align:center;min-width:110px">
+      <div style="font-size:1.8rem;margin-bottom:6px">📊</div>
+      <div style="font-size:0.75rem;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Embedding h</div>
+      <div style="font-size:0.8rem;color:var(--text);margin-top:4px">2048 numbers<br><span style="color:var(--muted);font-size:0.72rem">compact description</span></div>
+    </div>
+  </div>
+
+  <!-- interactive vector compression -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+    <div class="card-title">Interactive — Watch pixels compress into an embedding</div>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:20px">The encoder takes raw pixel values and compresses them into a small meaningful vector. Click Randomize to see different images.</p>
+
+    <div style="margin-bottom:16px">
+      <div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Input Pixels (12 sample values)</div>
+      <div id="pixelRow" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
+
+    <div style="text-align:center;color:var(--accent);font-size:1.2rem;margin:12px 0;font-family:var(--mono)">↓ &nbsp; Encoder f(·) &nbsp; ↓</div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--mono);font-size:0.72rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Embedding h (6 values)</div>
+      <div id="embedRow" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
+
+    <button class="btn-primary" onclick="randomizeEncoder()">Randomize Image</button>
+  </div>
+
+  <!-- layer by layer -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+    <div class="card-title">What the encoder learns — layer by layer</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:14px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-family:var(--mono);font-size:9px;color:#ff9f43;letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">Early Layers</div>
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:4px">Edges & Corners</div>
+        <div style="font-size:.8rem;color:var(--muted);line-height:1.5">Detects basic shapes — lines, curves, colour boundaries. Universal low-level features.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-family:var(--mono);font-size:9px;color:#4fc3f7;letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">Middle Layers</div>
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:4px">Shapes & Parts</div>
+        <div style="font-size:.8rem;color:var(--muted);line-height:1.5">Combines edges into parts — eyes, ears, wheels, legs. Recognises components.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-family:var(--mono);font-size:9px;color:#a29bfe;letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">Deep Layers</div>
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:4px">Semantic Concepts</div>
+        <div style="font-size:.8rem;color:var(--muted);line-height:1.5">Assembles parts into whole concepts — "this is a dog", "this is a car".</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-family:var(--mono);font-size:9px;color:#55efc4;letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">Output h</div>
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:4px">2048-dim Vector</div>
+        <div style="font-size:.8rem;color:var(--muted);line-height:1.5">Rich description used for all tasks — classification, retrieval, clustering.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Key Insight</div>
+    <p>The encoder has <strong style="color:var(--accent)">shared weights</strong> — the same network processes <em>both</em> augmented views of an image. This forces it to map the same object to the same region of space, no matter what augmentation was applied.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 3: SIMILARITY
+══════════════════════════════════════════ -->
+<div id="sec-similarity" class="section">
+  <div class="card">
+    <div class="card-title">What is Similarity?</div>
+    <p>After the encoder produces embedding vectors, we need to measure how <strong style="color:var(--accent)">similar</strong> two vectors are. We use <strong style="color:var(--positive)">cosine similarity</strong> — it measures the angle between two vectors. The closer the angle to 0°, the more similar.</p>
+  </div>
+
+  <!-- cosine formula card -->
+  <div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:18px 20px;margin-bottom:20px">
+    <div style="font-family:var(--mono);font-size:9px;color:#4fffb0;letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px">Cosine Similarity Formula</div>
+    <div style="font-family:var(--mono);font-size:1rem;color:var(--text);margin-bottom:10px">sim(h₁, h₂) = (h₁ · h₂) / (‖h₁‖ × ‖h₂‖)</div>
+    <div style="font-size:0.82rem;color:var(--muted);line-height:1.6">
+      h₁ · h₂ = dot product (multiply each pair of numbers and add up) &nbsp;|&nbsp;
+      ‖h‖ = length of the vector &nbsp;|&nbsp;
+      Result is always between <strong style="color:var(--positive)">−1</strong> and <strong style="color:var(--positive)">+1</strong>
+    </div>
+  </div>
+
+  <!-- similarity scale -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+    <div class="card-title">Similarity Scale</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:12px">
+      <div style="background:var(--surface2);border:1px solid rgba(79,255,176,0.4);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--positive);margin-bottom:6px">+1.0</div>
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:4px">Identical</div>
+        <div style="font-size:.78rem;color:var(--muted)">Same dog, two augmentations. Vectors point in exactly the same direction.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid rgba(124,111,255,0.4);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--accent);margin-bottom:6px">0.0</div>
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:4px">Unrelated</div>
+        <div style="font-size:.78rem;color:var(--muted)">Completely different concepts. Vectors are perpendicular — 90° apart.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid rgba(255,79,111,0.4);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--negative);margin-bottom:6px">−1.0</div>
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:4px">Opposite</div>
+        <div style="font-size:.78rem;color:var(--muted)">Maximally different. Vectors point in completely opposite directions.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- interactive similarity calculator -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+    <div class="card-title">Interactive Similarity Calculator</div>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:18px">Enter two simple 3-dimensional vectors and see the cosine similarity computed live.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <div style="font-family:var(--mono);font-size:0.75rem;color:var(--positive);letter-spacing:.1em;margin-bottom:8px">VECTOR h₁</div>
+        <div style="display:flex;gap:8px">
+          <input id="v1a" type="number" value="1" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--mono);font-size:.9rem" oninput="calcSim()">
+          <input id="v1b" type="number" value="2" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--mono);font-size:.9rem" oninput="calcSim()">
+          <input id="v1c" type="number" value="3" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--mono);font-size:.9rem" oninput="calcSim()">
+        </div>
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:0.75rem;color:var(--accent);letter-spacing:.1em;margin-bottom:8px">VECTOR h₂</div>
+        <div style="display:flex;gap:8px">
+          <input id="v2a" type="number" value="1" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--mono);font-size:.9rem" oninput="calcSim()">
+          <input id="v2b" type="number" value="2" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--mono);font-size:.9rem" oninput="calcSim()">
+          <input id="v2c" type="number" value="3" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--mono);font-size:.9rem" oninput="calcSim()">
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <button class="btn-primary" style="font-size:.8rem;padding:10px" onclick="simPreset(1,2,3,1,2,3)">Same vectors</button>
+      <button class="btn-primary" style="font-size:.8rem;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text)" onclick="simPreset(1,0,0,0,1,0)">Perpendicular</button>
+      <button class="btn-primary" style="font-size:.8rem;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text)" onclick="simPreset(1,2,3,-1,-2,-3)">Opposite</button>
+    </div>
+
+    <div id="simResult" style="background:var(--surface2);border-radius:10px;padding:18px">
+      <div style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);line-height:2;white-space:pre" id="simWorkings"></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:16px">
+        <div style="font-size:.85rem;color:var(--muted)">Similarity</div>
+        <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+          <div id="simBar" style="height:100%;border-radius:4px;transition:width .3s,background .3s"></div>
+        </div>
+        <div id="simVal" style="font-family:var(--mono);font-size:1.1rem;font-weight:700;min-width:60px;text-align:right"></div>
+      </div>
+      <div id="simVerdict" style="margin-top:12px;padding:10px 14px;border-radius:8px;font-size:.85rem"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Why cosine similarity and not just subtraction?</div>
+    <p>Subtracting two vectors gives a different answer depending on how long the vectors are. A dog described in "loud" numbers vs "quiet" numbers would seem different even if it's the same dog. Cosine similarity only looks at the <strong style="color:var(--accent)">direction</strong>, not the magnitude — so the same meaning always gives the same score.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 3: LOSS & PAIRS
+══════════════════════════════════════════ -->
+<div id="sec-loss" class="section">
+  <div class="card">
+    <div class="card-title">Contrastive Loss</div>
+    <p>The loss function rewards the model for pulling <strong style="color:var(--positive)">positive pairs</strong> close and pushing <strong style="color:var(--negative)">negative pairs</strong> apart. Select a pair type below to see how loss behaves.</p>
+  </div>
+
+  <div class="pair-selector">
+    <div class="pair-card pos selected" onclick="selectPair('positive', this)">
+      <div class="emoji">🐕🐕</div>
+      <div class="pair-label">Same dog, two augmentations</div>
+      <div class="pair-type">Positive Pair ✅</div>
+    </div>
+    <div class="pair-card neg" onclick="selectPair('negative', this)">
+      <div class="emoji">🐕🐈</div>
+      <div class="pair-label">Dog vs Cat</div>
+      <div class="pair-type">Negative Pair ✅</div>
+    </div>
+    <div class="pair-card fn" onclick="selectPair('falseneg', this)">
+      <div class="emoji">🐕🐕</div>
+      <div class="pair-label">Two different dogs</div>
+      <div class="pair-type">False Negative ⚠️</div>
+    </div>
+  </div>
+
+  <div class="loss-display">
+    <div class="loss-row">
+      <div class="loss-label">Similarity</div>
+      <div class="loss-bar-wrap"><div class="loss-bar" id="barSim" style="width:90%;background:var(--positive)"></div></div>
+      <div class="loss-value" id="valSim">0.92</div>
+    </div>
+    <div class="loss-row">
+      <div class="loss-label">Distance</div>
+      <div class="loss-bar-wrap"><div class="loss-bar" id="barDist" style="width:10%;background:var(--negative)"></div></div>
+      <div class="loss-value" id="valDist">0.08</div>
+    </div>
+    <div class="loss-row">
+      <div class="loss-label">Loss</div>
+      <div class="loss-bar-wrap"><div class="loss-bar" id="barLoss" style="width:5%;background:var(--accent)"></div></div>
+      <div class="loss-value" id="valLoss">0.04</div>
+    </div>
+    <div class="verdict good" id="verdict">
+      ✅ <strong>Good pair!</strong> High similarity → low loss. The model is rewarded for correctly recognizing these as the same image.
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ══════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'encoder') randomizeEncoder();
+  if (id === 'similarity') calcSim();
+}
+
+// ══════════════════════════════════
+// SECTION 2: ENCODER
+// ══════════════════════════════════
+function randomizeEncoder() {
+  const pixels = Array.from({length:12}, () => Math.floor(Math.random()*256));
+  const maxV = Math.max(...pixels);
+  const pixRow = document.getElementById('pixelRow');
+  if (!pixRow) return;
+  pixRow.innerHTML = pixels.map(v => {
+    const intensity = Math.round(0.2 + 0.8 * v / maxV * 255);
+    return `<div style="width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+      font-family:var(--mono);font-size:.62rem;font-weight:500;
+      background:rgba(124,111,255,${0.15 + 0.7 * v/255});
+      border:1px solid rgba(124,111,255,0.3);color:#fff">${v}</div>`;
+  }).join('');
+
+  // Simulate encoding: apply weights and ReLU-like transform
+  const h = [];
+  for (let i = 0; i < 6; i++) {
+    let val = 0;
+    for (let j = 0; j < 12; j++) val += pixels[j] * Math.sin((i+1)*(j+1));
+    val = val / 1000;
+    h.push(parseFloat(val.toFixed(3)));
+  }
+  const maxH = Math.max(...h.map(Math.abs));
+  const embedRow = document.getElementById('embedRow');
+  if (!embedRow) return;
+  embedRow.innerHTML = h.map(v => {
+    const norm = Math.abs(v) / (maxH || 1);
+    const color = v >= 0 ? `rgba(0,212,170,${0.15 + 0.7*norm})` : `rgba(255,101,132,${0.15 + 0.7*norm})`;
+    return `<div style="width:70px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+      font-family:var(--mono);font-size:.65rem;font-weight:500;
+      background:${color};border:1px solid rgba(0,212,170,0.3);color:#fff">${v}</div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════
+// SECTION 3: SIMILARITY
+// ══════════════════════════════════
+function simPreset(a1,b1,c1,a2,b2,c2) {
+  document.getElementById('v1a').value=a1;
+  document.getElementById('v1b').value=b1;
+  document.getElementById('v1c').value=c1;
+  document.getElementById('v2a').value=a2;
+  document.getElementById('v2b').value=b2;
+  document.getElementById('v2c').value=c2;
+  calcSim();
+}
+
+function calcSim() {
+  const v1 = [+document.getElementById('v1a').value||0, +document.getElementById('v1b').value||0, +document.getElementById('v1c').value||0];
+  const v2 = [+document.getElementById('v2a').value||0, +document.getElementById('v2b').value||0, +document.getElementById('v2c').value||0];
+  const dot = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+  const mag1 = Math.sqrt(v1[0]**2 + v1[1]**2 + v1[2]**2);
+  const mag2 = Math.sqrt(v2[0]**2 + v2[1]**2 + v2[2]**2);
+  const denom = mag1 * mag2;
+  const sim = denom === 0 ? 0 : dot / denom;
+  const simFixed = sim.toFixed(4);
+
+  const workings = document.getElementById('simWorkings');
+  if (workings) workings.textContent =
+`h₁ = [${v1.join(', ')}]    h₂ = [${v2.join(', ')}]
+
+Dot product  = ${v1[0]}×${v2[0]} + ${v1[1]}×${v2[1]} + ${v1[2]}×${v2[2]} = ${dot.toFixed(3)}
+‖h₁‖         = √(${v1[0]}² + ${v1[1]}² + ${v1[2]}²) = ${mag1.toFixed(3)}
+‖h₂‖         = √(${v2[0]}² + ${v2[1]}² + ${v2[2]}²) = ${mag2.toFixed(3)}
+
+sim(h₁, h₂) = ${dot.toFixed(3)} / (${mag1.toFixed(3)} × ${mag2.toFixed(3)}) = ${simFixed}`;
+
+  // bar: map [-1,1] to [0,100]%
+  const pct = ((sim + 1) / 2) * 100;
+  const color = sim > 0.5 ? 'var(--positive)' : sim > 0 ? 'var(--accent)' : 'var(--negative)';
+  const bar = document.getElementById('simBar');
+  if (bar) { bar.style.width = pct + '%'; bar.style.background = color; }
+  const valEl = document.getElementById('simVal');
+  if (valEl) { valEl.textContent = simFixed; valEl.style.color = color; }
+
+  const verdict = document.getElementById('simVerdict');
+  if (verdict) {
+    if (sim > 0.9) { verdict.style.cssText='background:rgba(79,255,176,.08);border:1px solid rgba(79,255,176,.3);color:var(--positive)'; verdict.innerHTML='✅ <strong>Very similar!</strong> The two embeddings point in nearly the same direction — the encoder sees them as the same concept.'; }
+    else if (sim > 0.4) { verdict.style.cssText='background:rgba(124,111,255,.08);border:1px solid rgba(124,111,255,.3);color:var(--accent)'; verdict.innerHTML='🔵 <strong>Somewhat similar.</strong> There is some shared meaning, but the model sees them as partially different.'; }
+    else if (sim > -0.1) { verdict.style.cssText='background:rgba(120,120,160,.08);border:1px solid rgba(120,120,160,.3);color:var(--muted)'; verdict.innerHTML='⚪ <strong>Unrelated.</strong> The embeddings are nearly perpendicular — no shared meaning detected.'; }
+    else { verdict.style.cssText='background:rgba(255,79,111,.08);border:1px solid rgba(255,79,111,.3);color:var(--negative)'; verdict.innerHTML='❌ <strong>Opposite!</strong> The embeddings point in opposing directions — very different concepts.'; }
+  }
+}
+
+// ══════════════════════════════════
+// SECTION 1: AUGMENTATION
+// ══════════════════════════════════
+const activeAugs = new Set();
+
+function toggleAug(el) {
+  const aug = el.dataset.aug;
+  if (activeAugs.has(aug)) { activeAugs.delete(aug); el.classList.remove('on'); }
+  else { activeAugs.add(aug); el.classList.add('on'); }
+}
+
+function drawOriginal() {
+  const canvas = document.getElementById('canvasA');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 180, 180);
+
+  // Sky
+  const sky = ctx.createLinearGradient(0, 0, 0, 100);
+  sky.addColorStop(0, '#1a1a3e');
+  sky.addColorStop(1, '#2d2d5e');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, 180, 100);
+
+  // Ground
+  ctx.fillStyle = '#2d4a2d';
+  ctx.fillRect(0, 100, 180, 80);
+
+  // Simple dog body
+  ctx.fillStyle = '#c8a46e';
+  ctx.beginPath(); ctx.ellipse(90, 115, 38, 25, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Head
+  ctx.beginPath(); ctx.ellipse(118, 95, 20, 18, 0.3, 0, Math.PI * 2); ctx.fill();
+
+  // Ear
+  ctx.fillStyle = '#a07840';
+  ctx.beginPath(); ctx.ellipse(128, 83, 10, 14, 0.8, 0, Math.PI * 2); ctx.fill();
+
+  // Eye
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(124, 91, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(125, 90, 1, 0, Math.PI * 2); ctx.fill();
+
+  // Nose
+  ctx.fillStyle = '#3a1a00';
+  ctx.beginPath(); ctx.ellipse(133, 97, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Legs
+  ctx.fillStyle = '#c8a46e';
+  [[70, 130], [82, 130], [95, 130], [107, 130]].forEach(([x, y]) => {
+    ctx.fillRect(x - 6, y, 10, 18);
+  });
+
+  // Tail
+  ctx.strokeStyle = '#c8a46e';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(53, 110); ctx.quadraticCurveTo(35, 90, 45, 72); ctx.stroke();
+
+  // Stars
+  ctx.fillStyle = '#ffffff';
+  [[20,20],[50,10],[140,15],[160,30],[30,40]].forEach(([x,y]) => {
+    ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function applyAugmentation() {
+  const canvasA = document.getElementById('canvasA');
+  const canvasB = document.getElementById('canvasB');
+  const ctxB = canvasB.getContext('2d');
+
+  // Redraw original
+  drawOriginal();
+
+  ctxB.clearRect(0, 0, 180, 180);
+  ctxB.save();
+
+  // Collect active augs
+  const augs = [...activeAugs];
+  if (augs.length === 0) {
+    ctxB.drawImage(canvasA, 0, 0);
+    document.getElementById('augTagB').textContent = 'No augmentation';
+    ctxB.restore();
+    return;
+  }
+
+  let applied = [];
+
+  // Start with original
+  ctxB.drawImage(canvasA, 0, 0);
+
+  if (augs.includes('flip')) {
+    const tmp = document.createElement('canvas');
+    tmp.width = 180; tmp.height = 180;
+    const t = tmp.getContext('2d');
+    t.drawImage(canvasB, 0, 0);
+    ctxB.clearRect(0, 0, 180, 180);
+    ctxB.translate(180, 0); ctxB.scale(-1, 1);
+    ctxB.drawImage(tmp, 0, 0);
+    ctxB.setTransform(1,0,0,1,0,0);
+    applied.push('Flip');
+  }
+
+  if (augs.includes('crop')) {
+    const tmp = document.createElement('canvas');
+    tmp.width = 180; tmp.height = 180;
+    const t = tmp.getContext('2d');
+    t.drawImage(canvasB, 0, 0);
+    const cx = 15 + Math.random() * 20;
+    const cy = 15 + Math.random() * 20;
+    const cw = 140 + Math.random() * 20;
+    const ch = 140 + Math.random() * 20;
+    ctxB.clearRect(0, 0, 180, 180);
+    ctxB.drawImage(tmp, cx, cy, cw, ch, 0, 0, 180, 180);
+    applied.push('Crop');
+  }
+
+  if (augs.includes('brightness')) {
+    const amount = 0.4 + Math.random() * 0.8;
+    const imageData = ctxB.getImageData(0, 0, 180, 180);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.min(255, data[i] * amount);
+      data[i+1] = Math.min(255, data[i+1] * amount);
+      data[i+2] = Math.min(255, data[i+2] * amount);
+    }
+    ctxB.putImageData(imageData, 0, 0);
+    applied.push('Brightness');
+  }
+
+  if (augs.includes('grayscale')) {
+    const imageData = ctxB.getImageData(0, 0, 180, 180);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const g = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+      data[i] = data[i+1] = data[i+2] = g;
+    }
+    ctxB.putImageData(imageData, 0, 0);
+    applied.push('Grayscale');
+  }
+
+  if (augs.includes('blur')) {
+    // Simple box blur approximation
+    const imageData = ctxB.getImageData(0, 0, 180, 180);
+    const src = new Uint8ClampedArray(imageData.data);
+    const data = imageData.data;
+    const w = 180, h = 180, r = 3;
+    for (let y = r; y < h - r; y++) {
+      for (let x = r; x < w - r; x++) {
+        let rr=0,gg=0,bb=0,count=0;
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            const idx = ((y+dy)*w + (x+dx)) * 4;
+            rr += src[idx]; gg += src[idx+1]; bb += src[idx+2]; count++;
+          }
+        }
+        const i = (y*w+x)*4;
+        data[i] = rr/count; data[i+1] = gg/count; data[i+2] = bb/count;
+      }
+    }
+    ctxB.putImageData(imageData, 0, 0);
+    applied.push('Blur');
+  }
+
+  if (augs.includes('rotate')) {
+    const angle = (Math.random() - 0.5) * 60 * Math.PI / 180;
+    const tmp = document.createElement('canvas');
+    tmp.width = 180; tmp.height = 180;
+    const t = tmp.getContext('2d');
+    t.drawImage(canvasB, 0, 0);
+    ctxB.clearRect(0, 0, 180, 180);
+    ctxB.translate(90, 90);
+    ctxB.rotate(angle);
+    ctxB.drawImage(tmp, -90, -90);
+    ctxB.setTransform(1,0,0,1,0,0);
+    applied.push('Rotate');
+  }
+
+  ctxB.restore();
+  document.getElementById('augTagB').textContent = applied.join(' + ');
+}
+
+drawOriginal();
+// Draw copy of original on B at start
+(function() {
+  const ca = document.getElementById('canvasA');
+  const cb = document.getElementById('canvasB');
+  setTimeout(() => {
+    cb.getContext('2d').drawImage(ca, 0, 0);
+  }, 100);
+})();
+
+
+// ══════════════════════════════════
+// SECTION 4: LOSS
+// ══════════════════════════════════
+const pairData = {
+  positive: { sim: 0.92, dist: 0.08, loss: 0.04, type: 'good', msg: '✅ <strong>Positive pair — correct!</strong> Same image, two augmentations. High similarity → very low loss. The model is rewarded.' },
+  negative: { sim: 0.09, dist: 0.91, loss: 0.06, type: 'good', msg: '✅ <strong>Negative pair — correct!</strong> Dog vs Cat are semantically different. Low similarity → low loss. The model is rewarded for pushing them apart.' },
+  falseneg: { sim: 0.78, dist: 0.22, loss: 0.85, type: 'warn', msg: '⚠️ <strong>False Negative!</strong> Two different dogs are treated as a negative pair. The model is penalized for their similarity — but they actually share the same semantics. This is the core problem in self-supervised contrastive learning.' },
+};
+
+function selectPair(type, el) {
+  document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const d = pairData[type];
+  setBar('barSim', d.sim * 100, 'var(--positive)');
+  setBar('barDist', d.dist * 100, 'var(--negative)');
+  setBar('barLoss', d.loss * 100, 'var(--accent)');
+  document.getElementById('valSim').textContent = d.sim.toFixed(2);
+  document.getElementById('valDist').textContent = d.dist.toFixed(2);
+  document.getElementById('valLoss').textContent = d.loss.toFixed(2);
+  const v = document.getElementById('verdict');
+  v.className = 'verdict ' + d.type;
+  v.innerHTML = d.msg;
+}
+
+function setBar(id, pct, color) {
+  const el = document.getElementById(id);
+  el.style.width = pct + '%';
+  el.style.background = color;
+}
+
+</script>
+</body>
+</html>
